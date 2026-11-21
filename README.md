@@ -18,3 +18,7 @@ Lessons, drills and scenarios are all in `data.js`. No build step.
 ## Run locally
 
     python3 -m http.server 8000
+
+## Voice (optional)
+
+In Settings, add an OpenAI API key and tick the voice option. The client's replies are spoken (OpenAI text-to-speech, each client has their own voice) and you answer by microphone (OpenAI speech-to-text). Hands-free mode listens automatically after the client finishes and sends when you pause. The microphone needs HTTPS, which GitHub Pages provides.

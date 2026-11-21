@@ -40,7 +40,12 @@
   let progress = load(LS.progress, { lessons: {}, sessions: [], drills: [] });
   let settings = load(LS.settings, { model: DEFAULT_MODEL, remember: false });
   let apiKey = "";
+  let openaiKey = "";
   try { apiKey = (settings.remember ? localStorage.getItem("elicit.key") : sessionStorage.getItem("elicit.key")) || ""; } catch (e) { /* ignore */ }
+
+  try { openaiKey = (settings.remember ? localStorage.getItem("elicit.okey") : sessionStorage.getItem("elicit.okey")) || ""; } catch (e) { /* ignore */ }
+  const SET_DEFAULTS = { voiceOn: false, handsFree: false, autoSend: false, sttModel: "gpt-4o-mini-transcribe", ttsModel: "gpt-4o-mini-tts" };
+  settings = Object.assign({}, SET_DEFAULTS, settings);
 
   function persist() { save(LS.progress, progress); }
 
@@ -75,6 +80,7 @@
   const views = { learn: renderLearn, drill: renderDrill, roleplay: renderRoleplay, progress: renderProgress, settings: renderSettings };
   function go(name) {
     document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === name ? "page" : "false"));
+    stopVoice(); if (rp) rp.active = false;
     const main = $("#view"); clear(main);
     views[name](main);
     window.scrollTo(0, 0);
@@ -184,6 +190,71 @@
 
   const keysFor = s => (s && s.principles) || CORE_PRINCIPLES;
 
+
+  /* ---------- VOICE (OpenAI speech-to-text and text-to-speech) ---------- */
+  let audioEl = null, recorder = null;
+  function stopVoice() {
+    if (audioEl) { try { audioEl.pause(); } catch (e) { /* ignore */ } audioEl = null; }
+    if (recorder) { recorder.cancel(); recorder = null; }
+  }
+  async function speak(text, s) {
+    if (!settings.voiceOn || !openaiKey) return;
+    const res = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + openaiKey },
+      body: JSON.stringify({ model: settings.ttsModel, voice: settings.voiceName || s.voice || "coral", input: text, instructions: s.voiceStyle || "", response_format: "mp3" })
+    });
+    if (!res.ok) throw new Error("Voice: " + (await errMsg(res)));
+    const url = URL.createObjectURL(await res.blob());
+    await new Promise(resolve => {
+      audioEl = new Audio(url);
+      audioEl.onended = audioEl.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      audioEl.play().catch(resolve);
+    });
+  }
+  async function errMsg(res) {
+    try { const j = await res.json(); if (j.error && j.error.message) return j.error.message; } catch (e) { /* ignore */ }
+    return res.status + " " + res.statusText;
+  }
+  async function transcribe(blob) {
+    const ext = /mp4/.test(blob.type) ? "mp4" : /ogg/.test(blob.type) ? "ogg" : "webm";
+    const fd = new FormData();
+    fd.append("file", blob, "speech." + ext);
+    fd.append("model", settings.sttModel);
+    fd.append("language", "en");
+    fd.append("prompt", "A phone call between a structural engineer and a client in New Zealand about consent, producer statements, decks, retaining walls, beams, foundations and council.");
+    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { authorization: "Bearer " + openaiKey }, body: fd });
+    if (!res.ok) throw new Error("Transcription: " + (await errMsg(res)));
+    return ((await res.json()).text || "").trim();
+  }
+  /* Starts recording. Resolves with a Blob. If autoStop, ends after a pause following speech. */
+  async function startRecording(autoStop, onLevel) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mr = new MediaRecorder(stream), chunks = [];
+    let cancelled = false, timer = null, ctx = null;
+    const done = new Promise(resolve => {
+      mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      mr.onstop = () => { clearInterval(timer); stream.getTracks().forEach(t => t.stop()); if (ctx) ctx.close(); resolve(cancelled ? null : new Blob(chunks, { type: mr.mimeType || "audio/webm" })); };
+    });
+    mr.start();
+    if (autoStop) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ctx.createAnalyser(); an.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Uint8Array(an.fftSize); let spoke = false, quiet = 0, total = 0;
+      timer = setInterval(() => {
+        an.getByteTimeDomainData(buf);
+        let sum = 0; for (const v of buf) { const x = (v - 128) / 128; sum += x * x; }
+        const rms = Math.sqrt(sum / buf.length); total += 100;
+        if (rms > 0.04) { spoke = true; quiet = 0; } else if (spoke) quiet += 100;
+        if ((spoke && quiet >= 1600) || total >= 60000 || (!spoke && total >= 15000)) { if (mr.state !== "inactive") mr.stop(); }
+      }, 100);
+    }
+    const handle = { done, stop() { if (mr.state !== "inactive") mr.stop(); }, cancel() { cancelled = true; if (mr.state !== "inactive") mr.stop(); } };
+    recorder = handle;
+    return handle;
+  }
+
   /* ---------- ROLE-PLAY ---------- */
   let rp = null;
   function renderRoleplay(main) {
@@ -215,7 +286,7 @@
     ].join("\n\n");
   }
   function startRoleplay(main, s) {
-    rp = { s, turns: [{ role: "assistant", content: s.opening }], busy: false, hints: 0 };
+    rp = { s, turns: [{ role: "assistant", content: s.opening }], busy: false, hints: 0, active: true };
     drawCall(main);
   }
   function drawCall(main) {
@@ -227,6 +298,34 @@
     const hintBtn = el("button", { class: "btn ghost", type: "button" }, "Hint");
     const endBtn = el("button", { class: "btn warn", type: "button" }, "End call and debrief");
     const status = el("p", { class: "muted", "aria-live": "polite" });
+    const voiceReady = !!openaiKey && settings.voiceOn;
+    const mic = el("button", { class: "btn", type: "button", disabled: !voiceReady, title: voiceReady ? "" : "Turn on voice and add an OpenAI key in Settings" }, "Speak");
+    let recording = false;
+
+    async function listen() {
+      if (!rp.active || recording || rp.busy) return;
+      try {
+        recording = true; mic.textContent = "Stop"; status.textContent = settings.handsFree ? "Listening... pause when you've finished." : "Recording... tap Stop when finished.";
+        const h = await startRecording(settings.handsFree);
+        const blob = await h.done; recorder = null;
+        recording = false; mic.textContent = "Speak";
+        if (!blob || !rp.active) return;
+        status.textContent = "Transcribing...";
+        const text = await transcribe(blob);
+        status.textContent = "";
+        if (!text) { status.textContent = "Didn't catch anything. Try again."; if (settings.handsFree && rp.active) listen(); return; }
+        input.value = text;
+        if (settings.autoSend || settings.handsFree) submit(); else input.focus();
+      } catch (e) { recording = false; mic.textContent = "Speak"; status.textContent = "Error: " + (e.name === "NotAllowedError" ? "microphone permission was blocked." : e.message); }
+    }
+    mic.addEventListener("click", () => { if (recording && recorder) recorder.stop(); else listen(); });
+
+    async function say(text) {
+      if (!voiceReady) return;
+      try { status.textContent = "Client is speaking..."; await speak(text, s); status.textContent = ""; }
+      catch (e) { status.textContent = "Error: " + e.message; return false; }
+      return true;
+    }
 
     function paint() {
       clear(log);
@@ -244,6 +343,11 @@
         rp.turns.push({ role: "assistant", content: reply });
       } catch (e) { status.textContent = "Error: " + e.message; rp.turns.pop(); input.value = text; }
       rp.busy = false; send.disabled = false; paint(); input.focus();
+      const last = rp.turns[rp.turns.length - 1];
+      if (last.role === "assistant" && rp.active) {
+        const ok = await say(last.content);
+        if (ok && settings.handsFree && rp.active) listen();
+      }
     }
     send.addEventListener("click", submit);
     input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
@@ -255,11 +359,12 @@
         status.textContent = "Hint: " + t;
       } catch (e) { status.textContent = "Error: " + e.message; }
     });
-    endBtn.addEventListener("click", () => debrief(main));
+    endBtn.addEventListener("click", () => { rp.active = false; stopVoice(); debrief(main); });
 
     main.append(el("h2", null, s.title), el("p", { class: "muted" }, s.level + " | " + s.context),
-      log, input, el("div", { class: "row" }, send, hintBtn, endBtn), status);
+      log, input, el("div", { class: "row" }, mic, send, hintBtn, endBtn), status);
     paint();
+    if (voiceReady) (async () => { const ok = await say(s.opening); if (ok && settings.handsFree && rp.active) listen(); })();
   }
   function transcript(turns) {
     return turns.map(t => (t.role === "assistant" ? "CLIENT: " : "ENGINEER: ") + t.content).join("\n");
@@ -351,20 +456,35 @@
     const model = el("input", { type: "text", value: settings.model || DEFAULT_MODEL, "aria-label": "Model" });
     const remember = el("input", { type: "checkbox", id: "rem" }); remember.checked = !!settings.remember;
     const msg = el("p", { class: "muted", "aria-live": "polite" });
+    const okey = el("input", { type: "password", autocomplete: "off", placeholder: "sk-...", value: openaiKey, "aria-label": "OpenAI API key" });
+    const mkCheck = (id, label, val) => { const c = el("input", { type: "checkbox", id }); c.checked = !!val; return [c, el("label", { class: "check", for: id }, c, " " + label)]; };
+    const [voiceOn, voiceOnL] = mkCheck("vo", "Speak the client's replies aloud and let me talk instead of type", settings.voiceOn);
+    const [hands, handsL] = mkCheck("hf", "Hands-free: after the client finishes, listen automatically and send when I pause", settings.handsFree);
+    const [autoS, autoSL] = mkCheck("as", "Send automatically after speaking (otherwise I review the text first)", settings.autoSend);
+    const voiceSel = el("select", { "aria-label": "Voice override" }, el("option", { value: "" }, "Use each client's own voice"),
+      ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"].map(v => el("option", { value: v }, v)));
+    voiceSel.value = settings.voiceName || "";
     main.append(el("h2", null, "Settings"),
       el("div", { class: "card" },
         el("p", null, "The role-play and drill use the Anthropic API directly from your browser. Your key is sent only to api.anthropic.com. It is kept for this browser tab unless you choose to remember it on this device."),
         el("label", null, "Anthropic API key", key),
         el("label", null, "Model", model),
+        el("h3", null, "Voice (optional, uses OpenAI)"),
+        el("p", { class: "muted" }, "Needs an OpenAI API key. Speech is sent to OpenAI for transcription and voice. Use a key with a spend limit."),
+        el("label", null, "OpenAI API key", okey),
+        voiceOnL, handsL, autoSL,
+        el("label", null, "Voice", voiceSel),
         el("label", { class: "check", for: "rem" }, remember, " Remember the key on this device (stored in this browser's local storage)"),
         el("p", { class: "muted" }, "Use a key with a spend limit, and do not remember it on a shared computer."),
         el("div", { class: "row" },
           el("button", { class: "btn", type: "button", onclick: () => {
-            apiKey = key.value.trim();
-            settings = { model: model.value.trim() || DEFAULT_MODEL, remember: remember.checked };
+            apiKey = key.value.trim(); openaiKey = okey.value.trim();
+            settings = Object.assign({}, settings, { model: model.value.trim() || DEFAULT_MODEL, remember: remember.checked,
+              voiceOn: voiceOn.checked, handsFree: hands.checked, autoSend: autoS.checked, voiceName: voiceSel.value });
             save(LS.settings, settings);
-            try { localStorage.removeItem("elicit.key"); sessionStorage.removeItem("elicit.key");
-              (settings.remember ? localStorage : sessionStorage).setItem("elicit.key", apiKey); } catch (e) { /* ignore */ }
+            try { ["elicit.key", "elicit.okey"].forEach(k => { localStorage.removeItem(k); sessionStorage.removeItem(k); });
+              const st = settings.remember ? localStorage : sessionStorage;
+              st.setItem("elicit.key", apiKey); st.setItem("elicit.okey", openaiKey); } catch (e) { /* ignore */ }
             msg.textContent = "Saved.";
           } }, "Save"),
           el("button", { class: "btn ghost", type: "button", onclick: async () => {
@@ -372,7 +492,7 @@
             try { await claude("Reply with the single word OK.", [{ role: "user", content: "ping" }], 10); msg.textContent = "Connection works."; }
             catch (e) { msg.textContent = "Failed: " + e.message; }
           } }, "Test connection"),
-          el("button", { class: "btn ghost", type: "button", onclick: () => { try { localStorage.removeItem("elicit.key"); sessionStorage.removeItem("elicit.key"); } catch (e) { /* ignore */ } apiKey = ""; key.value = ""; msg.textContent = "Key cleared."; } }, "Clear key")),
+          el("button", { class: "btn ghost", type: "button", onclick: () => { try { ["elicit.key", "elicit.okey"].forEach(k => { localStorage.removeItem(k); sessionStorage.removeItem(k); }); } catch (e) { /* ignore */ } apiKey = ""; openaiKey = ""; key.value = ""; okey.value = ""; msg.textContent = "Keys cleared."; } }, "Clear keys")),
         msg),
       el("div", { class: "card" },
         el("h3", null, "Your data"),

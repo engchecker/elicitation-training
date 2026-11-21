@@ -293,6 +293,8 @@ window.DRILLS = [
 window.SCENARIOS = [
   {
     id: "S1",
+    voice: "coral",
+    voiceStyle: "Warm, chatty New Zealand woman in her late thirties. Friendly and natural, a little rambling.",
     level: "Easy",
     title: "The deck on the slope",
     blurb: "A homeowner phones about engineering a deck.",
@@ -311,6 +313,8 @@ window.SCENARIOS = [
   },
   {
     id: "S2",
+    voice: "ash",
+    voiceStyle: "New Zealand man in his forties. Clipped, impatient and slightly defensive, speaking fast.",
     level: "Medium",
     title: "Knocking out the wall",
     blurb: "A buyer wants a load-bearing wall removed before settlement.",
@@ -330,6 +334,8 @@ window.SCENARIOS = [
   },
   {
     id: "S3",
+    voice: "echo",
+    voiceStyle: "New Zealand man in his fifties. Brisk, confident, a bit dismissive, like a busy site manager.",
     level: "Hard",
     title: "The tick-box request",
     blurb: "A site manager wants a quick sign-off on work already done.",
@@ -349,6 +355,8 @@ window.SCENARIOS = [
   },
   {
     id: "S4",
+    voice: "sage",
+    voiceStyle: "New Zealand woman in her early forties. Articulate, fluent and busy, slightly vague.",
     level: "Medium",
     title: "The architect's moving brief",
     blurb: "An architect keeps changing the scope of a renovation.",
@@ -367,6 +375,8 @@ window.SCENARIOS = [
   },
   {
     id: "S5",
+    voice: "onyx",
+    voiceStyle: "New Zealand man in his fifties. Angry and exhausted, combative, voice tight; softens only if treated calmly.",
     level: "Hard",
     title: "Under fire",
     blurb: "An angry owner questions your motives. Practise holding your frame while still eliciting.",
