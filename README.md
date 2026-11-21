@@ -22,3 +22,7 @@ Lessons, drills and scenarios are in `data.js` (client elicitation) and `tracks.
 ## Voice (optional)
 
 In Settings, add an OpenAI API key and tick the voice option. The client's replies are spoken (OpenAI text-to-speech, each client has their own voice) and you answer by microphone (OpenAI speech-to-text). Hands-free mode listens automatically after the client finishes and sends when you pause. The microphone needs HTTPS, which GitHub Pages provides.
+
+## Phone and desktop
+
+The site works on any device. Keys and progress are stored per browser and do not sync. Use Settings to export progress on one device and import it on another (API keys are never included). On a phone, use "Add to Home Screen" to install it like an app.

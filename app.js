@@ -546,6 +546,25 @@
     const voiceSel = el("select", { "aria-label": "Voice override" }, el("option", { value: "" }, "Use each client's own voice"),
       ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"].map(v => el("option", { value: v }, v)));
     voiceSel.value = settings.voiceName || "";
+    const importInput = el("input", { type: "file", accept: "application/json,.json", hidden: true });
+    importInput.addEventListener("change", async () => {
+      const f = importInput.files[0]; if (!f) return;
+      try {
+        const d = JSON.parse(await f.text());
+        const p = d.progress || d;
+        if (!p || typeof p.lessons !== "object" || !Array.isArray(p.sessions) || !Array.isArray(p.drills)) throw new Error("This doesn't look like a progress file from this app.");
+        if (!confirm("Replace the progress on this device with the imported file? Your current progress here will be overwritten.")) return;
+        progress = { lessons: p.lessons, sessions: p.sessions, drills: p.drills }; persist();
+        if (d.profile) {
+          if (typeof d.profile.aboutMe === "string") settings.aboutMe = d.profile.aboutMe;
+          if (d.profile.track && TRACKS[d.profile.track]) { settings.track = d.profile.track; track = d.profile.track; }
+          save(LS.settings, settings);
+        }
+        msg.textContent = "Imported " + p.sessions.length + " role-plays and " + Object.keys(p.lessons).length + " lessons.";
+      } catch (e) { msg.textContent = "Import failed: " + e.message; }
+      importInput.value = "";
+    });
+    main.append(importInput);
     main.append(el("h2", null, "Settings"),
       el("div", { class: "card" },
         el("p", null, "The role-play and drill use the Anthropic API directly from your browser. Your key is sent only to api.anthropic.com. It is kept for this browser tab unless you choose to remember it on this device."),
@@ -580,9 +599,12 @@
         el("h3", null, "Your data"),
         el("div", { class: "row" },
           el("button", { class: "btn ghost", type: "button", onclick: () => {
-            const blob = new Blob([JSON.stringify(progress, null, 2)], { type: "application/json" });
-            const a = el("a", { href: URL.createObjectURL(blob), download: "elicitation-progress.json" }); a.click();
+            const data = { app: "conversation-skills-trainer", version: 1, progress, profile: { aboutMe: settings.aboutMe, track: settings.track } };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const a = el("a", { href: URL.createObjectURL(blob), download: "conversation-trainer-progress.json" }); a.click();
+            msg.textContent = "Exported. API keys are never included.";
           } }, "Export progress"),
+          el("button", { class: "btn ghost", type: "button", onclick: () => importInput.click() }, "Import progress"),
           el("button", { class: "btn warn", type: "button", onclick: () => {
             if (confirm("Reset all progress on this device? This cannot be undone.")) { progress = { lessons: {}, sessions: [], drills: [] }; persist(); msg.textContent = "Progress reset."; }
           } }, "Reset progress"))));
