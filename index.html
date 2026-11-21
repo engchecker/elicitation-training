@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Client Elicitation Trainer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Client Elicitation Trainer</h1>
+    <nav aria-label="Sections">
+      <button data-view="learn" type="button">Learn</button>
+      <button data-view="drill" type="button">Drill</button>
+      <button data-view="roleplay" type="button">Role-play</button>
+      <button data-view="progress" type="button">Progress</button>
+      <button data-view="settings" type="button">Settings</button>
+    </nav>
+  </div>
+</header>
+<main id="view" class="wrap"></main>
+<footer class="wrap muted">Progress and your API key stay in this browser. Nothing is sent anywhere except the Anthropic API when you use the drill or role-play.</footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
