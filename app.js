@@ -44,7 +44,7 @@
   try { apiKey = (settings.remember ? localStorage.getItem("elicit.key") : sessionStorage.getItem("elicit.key")) || ""; } catch (e) { /* ignore */ }
 
   try { openaiKey = (settings.remember ? localStorage.getItem("elicit.okey") : sessionStorage.getItem("elicit.okey")) || ""; } catch (e) { /* ignore */ }
-  const DEFAULT_ABOUT = "I'm a 50-year-old chartered engineer who also manages people and co-directs a small firm. I'm direct, analytical and solution-focused. I find small talk, staying calm in conflict, and understanding and voicing the other person's viewpoint harder than the technical work. I'd like concrete example wording and one clear priority at a time, with plain, practical feedback rather than generic empathy language.";
+  const DEFAULT_ABOUT = "I'm a 50-year-old chartered engineer who also manages people and co-directs a small firm. I'm direct, analytical and solution-focused. I find small talk, staying calm in conflict, and understanding and voicing the other person's viewpoint harder than the technical work. I also want to handle difficult parents better, help my children without pushing advice onto them, and communicate well with a partner and friends. I'd like concrete example wording and one clear priority at a time, with plain, practical feedback rather than generic empathy language.";
   const SET_DEFAULTS = { aboutMe: DEFAULT_ABOUT, voiceOn: false, handsFree: false, autoSend: false, sttModel: "gpt-4o-mini-transcribe", ttsModel: "gpt-4o-mini-tts" };
   settings = Object.assign({}, SET_DEFAULTS, settings);
 
@@ -107,7 +107,10 @@
     { name: "Small talk", keys: ["T1", "T2", "T3", "T4", "T5"], track: "smalltalk" },
     { name: "Staying calm under pressure", keys: ["D1", "D2", "D3", "D5"], track: "defuse" },
     { name: "Understanding the other person's view", keys: ["V1", "V3", "D4", "C3", "P3"], track: "perspective" },
-    { name: "Expressing that understanding", keys: ["V2", "V4", "V5", "P5"], track: "perspective" }
+    { name: "Expressing that understanding", keys: ["V2", "V4", "V5", "P5"], track: "perspective" },
+    { name: "Helping others without pushing advice", keys: ["F1", "F3", "F4", "M3"], track: "family" },
+    { name: "Boundaries with difficult people", keys: ["F5", "D5", "C4"], track: "family" },
+    { name: "Warmth in close relationships", keys: ["M1", "M2", "M6", "F6"], track: "close" }
   ];
   function focusScore(keys) {
     const vals = [];
@@ -118,7 +121,7 @@
     const about = el("textarea", { rows: 5, "aria-label": "About me" }); about.value = settings.aboutMe || "";
     const saved = el("span", { class: "muted" });
     main.append(el("h2", null, "My plan"),
-      el("p", { class: "lede" }, "A practice programme built around small talk, staying calm, and understanding and voicing other people's views."),
+      el("p", { class: "lede" }, "A practice programme built around small talk, staying calm, understanding and voicing other people's views, and your closest relationships."),
       el("div", { class: "card" },
         el("h3", null, "My profile"),
         el("p", { class: "muted" }, "Used only to tailor the coach's feedback. Stored in this browser. Edit it freely."),
@@ -137,9 +140,11 @@
       ["perspective", "Start here. It underpins everything else: understand first, then express."],
       ["defuse", "Staying calm. Start with 'Steady yourself first' and 'Know your triggers and pre-write your lines'."],
       ["smalltalk", "Small talk. Short, low-stakes scenarios build confidence quickly."],
+      ["family", "Parents and children: difficult parents, and helping your children without pushing advice."],
+      ["close", "Partners and friends: connection, hard conversations and repair."],
       ["work", "Difficult conversations at work: feedback, saying no, disagreeing with a peer."],
       ["elicit", "Client conversations, once the basics feel natural."],
-      ["personal", "Personal conversations, when you want to apply it closer to home."]
+      ["personal", "Personal basics: a general grounding you can revisit at any point."]
     ];
     main.append(el("h3", null, "Suggested order"));
     const ol = el("ol", { class: "plan" });

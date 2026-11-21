@@ -1,6 +1,6 @@
 # Conversation Skills Trainer
 
-A static training site for conversation skills in four tracks (client elicitation, defusing conflict, difficult work conversations, personal conversations), each with lessons, drills and live AI role-play.
+A static training site for conversation skills in eight tracks (seeing their side, defusing conflict, small talk, parents and children, partners and friends, work conversations, client elicitation, personal basics), each with lessons, drills and live AI role-play.
 
 - **Learn**: eight short lessons with checks
 - **Drill**: rewrite weak questions, coached by AI
