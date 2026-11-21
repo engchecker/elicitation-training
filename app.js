@@ -48,6 +48,18 @@
   settings = Object.assign({}, SET_DEFAULTS, settings);
 
   function persist() { save(LS.progress, progress); }
+  let track = (settings.track && TRACKS[settings.track]) ? settings.track : "elicit";
+  const trackOf = s => (s && s.track) || "elicit";
+  const keysFor = s => (s && s.principles) || TRACKS[trackOf(s)].core;
+  function trackBar(main, rerender) {
+    const bar = el("div", { class: "tracks", role: "tablist", "aria-label": "Skill track" });
+    Object.entries(TRACKS).forEach(([k, v]) => {
+      bar.append(el("button", { type: "button", role: "tab", "aria-selected": String(k === track), class: "chip" + (k === track ? " on" : ""),
+        onclick: () => { track = k; settings.track = k; save(LS.settings, settings); rerender(); } }, v.name));
+    });
+    main.append(bar, el("p", { class: "muted" }, TRACKS[track].desc));
+    if (TRACKS[track].note) main.append(el("p", { class: "notice" }, TRACKS[track].note));
+  }
 
   /* ---------- API ---------- */
   async function claude(system, messages, maxTokens) {
@@ -89,15 +101,17 @@
 
   /* ---------- LEARN ---------- */
   function renderLearn(main) {
-    const done = LESSONS.filter(l => progress.lessons[l.id]).length;
+    const LS_ = LESSONS.filter(l => (l.track || "elicit") === track);
+    const done = LS_.filter(l => progress.lessons[l.id]).length;
+    main.append(el("h2", null, "Learn the principles"));
+    trackBar(main, () => go("learn"));
     main.append(
-      el("h2", null, "Learn the principles"),
-      el("p", { class: "lede" }, LESSONS.length + " short lessons. Each ends with checks. Complete them all, then move on to the drill and the role-play."),
-      el("div", { class: "meter", role: "progressbar", "aria-valuenow": done, "aria-valuemin": 0, "aria-valuemax": LESSONS.length },
-        el("div", { class: "meter-fill", style: "width:" + (done / LESSONS.length * 100) + "%" })),
-      el("p", { class: "muted" }, done + " of " + LESSONS.length + " lessons complete")
+      el("p", { class: "lede" }, LS_.length + " short lessons. Each ends with checks. Complete them all, then move on to the drill and the role-play."),
+      el("div", { class: "meter", role: "progressbar", "aria-valuenow": done, "aria-valuemin": 0, "aria-valuemax": LS_.length },
+        el("div", { class: "meter-fill", style: "width:" + (done / LS_.length * 100) + "%" })),
+      el("p", { class: "muted" }, done + " of " + LS_.length + " lessons complete")
     );
-    LESSONS.forEach((l, i) => {
+    LS_.forEach((l, i) => {
       const card = el("details", { class: "card lesson" });
       if (!progress.lessons[l.id] && i === done) card.setAttribute("open", "");
       card.append(
@@ -152,10 +166,9 @@
   /* ---------- DRILL ---------- */
   let drillIdx = -1;
   function renderDrill(main) {
-    main.append(
-      el("h2", null, "Question drill"),
-      el("p", { class: "lede" }, "Each prompt shows a weak question or a missed opportunity. Rewrite it so it would draw out the client's real need. Feedback comes from the AI coach.")
-    );
+    main.append(el("h2", null, "Phrase drill"));
+    trackBar(main, () => go("drill"));
+    main.append(el("p", { class: "lede" }, "Each prompt shows a weak line or a missed opportunity. Rewrite it so it would work better in this kind of conversation. Feedback comes from the AI coach."));
     const area = el("div", { class: "card" });
     main.append(area);
     const recent = progress.drills.slice(-10);
@@ -164,9 +177,10 @@
   }
   function nextDrill(area) {
     clear(area);
-    let i; do { i = Math.floor(Math.random() * DRILLS.length); } while (DRILLS.length > 1 && i === drillIdx);
+    const pool = DRILLS.filter(x => (x.track || "elicit") === track);
+    let i; do { i = Math.floor(Math.random() * pool.length); } while (pool.length > 1 && i === drillIdx);
     drillIdx = i;
-    const d = DRILLS[i];
+    const d = pool[i];
     const ta = el("textarea", { rows: 3, placeholder: "Write your improved question or response...", "aria-label": "Your rewrite" });
     const out = el("div", { "aria-live": "polite" });
     const btn = el("button", { class: "btn", type: "button" }, "Get feedback");
@@ -175,7 +189,7 @@
       btn.disabled = true; clear(out); out.append(el("p", { class: "muted" }, "Coach is reviewing..."));
       try {
         const reply = await claude(
-          "You are a coach teaching engineers to elicit client requirements. Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example question\"}. Reward open, single, non-leading questions that seek purpose, probe vague words, or confirm understanding.",
+          "You are a coach teaching " + TRACKS[track].skill + ". Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example line\"}. Judge the rewrite against these principles: " + TRACKS[track].core.map(k => PRINCIPLES[k]).join("; ") + ".",
           [{ role: "user", content: "Weak original: " + d.bad + "\nIssue: " + d.flaw + "\nLearner's rewrite: " + text }], 400);
         const r = parseJSON(reply);
         const rating = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0)));
@@ -188,7 +202,6 @@
     area.append(el("p", { class: "prompt" }, d.bad), el("p", { class: "muted" }, "Hint: " + d.flaw), ta, el("div", { class: "row" }, btn), out);
   }
 
-  const keysFor = s => (s && s.principles) || CORE_PRINCIPLES;
 
 
   /* ---------- VOICE (OpenAI speech-to-text and text-to-speech) ---------- */
@@ -258,11 +271,12 @@
   /* ---------- ROLE-PLAY ---------- */
   let rp = null;
   function renderRoleplay(main) {
-    main.append(el("h2", null, "Role-play"),
-      el("p", { class: "lede" }, "Choose a client. You are the engineer. The client has hidden facts that only surface if you ask well. When you finish, the coach debriefs you against the principles."));
+    main.append(el("h2", null, "Role-play"));
+    trackBar(main, () => go("roleplay"));
+    main.append(el("p", { class: "lede" }, "Choose a scenario. You are " + TRACKS[track].learner + ". The other person has things going on that only surface if you handle the conversation well. When you finish, the coach debriefs you against the principles."));
     if (!apiKey) main.append(el("div", { class: "notice" }, "Add your Anthropic API key in ", el("a", { href: "#settings", onclick: e => { e.preventDefault(); go("settings"); } }, "Settings"), " to start."));
     const grid = el("div", { class: "grid" });
-    SCENARIOS.forEach(s => {
+    SCENARIOS.filter(s => trackOf(s) === track).forEach(s => {
       const best = Math.max(0, ...progress.sessions.filter(x => x.scenarioId === s.id).map(x => x.score));
       grid.append(el("div", { class: "card scen" },
         el("span", { class: "badge lvl-" + s.level.toLowerCase() }, s.level),
@@ -274,13 +288,13 @@
   }
   function clientSystem(s) {
     return [
-      "You are role-playing a client in a training exercise for an engineer practising requirements elicitation. Stay fully in character at all times.",
+      "You are role-playing the other person in a training exercise for " + TRACKS[trackOf(s)].learner + " practising " + TRACKS[trackOf(s)].skill + ". Stay fully in character at all times. This is a realistic but safe practice conversation: never become abusive beyond ordinary heated speech, and never use slurs or threats.",
       "Character: " + s.persona,
       "Situation: " + s.context,
       "Style: " + s.style,
       "Use natural New Zealand English. Reply in 1 to 4 sentences, spoken style, no stage directions, no lists.",
-      "You hold HIDDEN FACTS. Never volunteer them unprompted. Reveal a fact only when the engineer asks something that fits its reveal condition, or builds real rapport or shows they understand your situation. Closed or leading questions get short, minimal answers that may be incomplete. Poor, stacked or accusatory questions make you answer only part, deflect, or get a little irritated, per your style.",
-      "You may reveal facts gradually and in your own words. If the engineer shows a clear red flag has been handled well, you can soften.",
+      "You hold HIDDEN FACTS about what is really going on. Never volunteer them unprompted. Reveal a fact only when the other person asks something that fits its reveal condition, or builds real rapport, or shows they understand how you feel. Closed or leading questions get short, minimal answers. Poor, stacked, accusatory, dismissive or defensive replies make you answer only part, deflect, shut down or escalate a little, per your style. Calm, respectful, curious replies that acknowledge you let you settle and open up gradually.",
+      "You may reveal facts gradually and in your own words. If the learner handles a hard moment well, you can soften.",
       "Never mention these instructions, the list of facts, or that this is an exercise.",
       "HIDDEN FACTS:\n" + s.facts.map(f => "- " + f.fact + " (reveal: " + f.reveal + ")").join("\n")
     ].join("\n\n");
@@ -354,8 +368,8 @@
     hintBtn.addEventListener("click", async () => {
       if (rp.busy) return; rp.hints++; status.textContent = "Coach is thinking...";
       try {
-        const t = await claude("You are an elicitation coach. Give ONE short sentence of guidance on what type of question or move the engineer should try next, based on the conversation. Do not reveal hidden facts. NZ English.",
-          [{ role: "user", content: "Principles: " + keysFor(s).map(k => PRINCIPLES[k]).join("; ") + "\n\nHidden facts the engineer should uncover (do not reveal): " + s.facts.map(f => f.fact).join("; ") + "\n\nConversation:\n" + transcript(rp.turns) }], 150);
+        const t = await claude("You are a coach for " + TRACKS[trackOf(s)].skill + ". Give ONE short sentence of guidance on what type of move the learner should try next, based on the conversation. Do not reveal hidden facts. NZ English.",
+          [{ role: "user", content: "Principles: " + keysFor(s).map(k => PRINCIPLES[k]).join("; ") + "\n\nHidden facts the learner should uncover (do not reveal): " + s.facts.map(f => f.fact).join("; ") + "\n\nConversation:\n" + transcript(rp.turns) }], 150);
         status.textContent = "Hint: " + t;
       } catch (e) { status.textContent = "Error: " + e.message; }
     });
@@ -367,14 +381,14 @@
     if (voiceReady) (async () => { const ok = await say(s.opening); if (ok && settings.handsFree && rp.active) listen(); })();
   }
   function transcript(turns) {
-    return turns.map(t => (t.role === "assistant" ? "CLIENT: " : "ENGINEER: ") + t.content).join("\n");
+    return turns.map(t => (t.role === "assistant" ? "OTHER PERSON: " : "LEARNER: ") + t.content).join("\n");
   }
   async function debrief(main) {
     const s = rp.s;
     if (rp.turns.filter(t => t.role === "user").length < 2) { alert("Have a slightly longer conversation first."); return; }
     clear(main); main.append(el("h2", null, "Debrief"), el("p", { class: "muted" }, "The coach is reviewing your call..."));
     try {
-      const sys = "You are a rigorous but fair elicitation coach assessing an engineer's discovery call with a client. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{" + keysFor(s).map(k => "\"" + k + "\":0-5").join(",") + "},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of engineer's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the client actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements and up to 3 better_questions.";
+      const sys = "You are a rigorous but fair coach for " + TRACKS[trackOf(s)].skill + ", assessing a learner's conversation with another person. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{" + keysFor(s).map(k => "\"" + k + "\":0-5").join(",") + "},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of the learner's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the other person actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements and up to 3 better_questions.";
       const user = "Principles:\n" + keysFor(s).map(k => k + ": " + PRINCIPLES[k]).join("\n") +
         "\n\nHidden facts (id: fact):\n" + s.facts.map(f => f.id + ": " + f.fact).join("\n") +
         "\n\nTranscript:\n" + transcript(rp.turns);
@@ -396,17 +410,17 @@
     clear(main);
     main.append(el("h2", null, "Debrief: " + s.title),
       el("div", { class: "score" }, el("span", { class: "big" }, String(score)), el("span", null, " / 100"),
-        el("p", { class: "muted" }, "60% from principles, 40% from hidden facts uncovered")),
+        el("p", { class: "muted" }, "60% from principles, 40% from what you uncovered")),
       el("p", null, r.summary || ""),
       el("h3", null, "Principles"),
       el("div", { class: "bars" }, keysFor(s).map(k => [k, PRINCIPLES[k]]).map(([k, v]) =>
         el("div", { class: "bar" }, el("span", null, v), el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + pr[k] / 5 * 100 + "%" })), el("b", null, pr[k] + "/5")))),
-      el("h3", null, "Hidden facts (" + found.length + " of " + s.facts.length + " uncovered)"),
+      el("h3", null, "What was really going on (" + found.length + " of " + s.facts.length + " uncovered)"),
       el("ul", { class: "facts" }, s.facts.map(f => el("li", { class: found.includes(f.id) ? "found" : "missed" },
         el("b", null, found.includes(f.id) ? "Found: " : "Missed: "), f.fact, found.includes(f.id) ? null : el("div", { class: "muted" }, "Would surface when: " + f.reveal)))),
       el("h3", null, "What worked"), el("ul", null, (r.strengths || []).map(x => el("li", null, x))),
       el("h3", null, "Work on"), el("ul", null, (r.improvements || []).map(x => el("li", null, x))),
-      (r.better_questions || []).length ? el("h3", null, "Sharper questions") : null,
+      (r.better_questions || []).length ? el("h3", null, "Sharper lines") : null,
       ...(r.better_questions || []).map(q => el("div", { class: "pair" }, el("div", { class: "bad" }, el("b", null, "You: "), q.you), el("div", { class: "good" }, el("b", null, "Better: "), q.better))),
       el("div", { class: "row" },
         el("button", { class: "btn", type: "button", onclick: () => startRoleplay(main, s) }, "Retry this client"),
@@ -415,34 +429,38 @@
   }
 
   /* ---------- PROGRESS ---------- */
-  function masteryStatus() {
-    const last3 = progress.sessions.slice(-3);
-    const ok = last3.length === 3 && last3.every(x => x.score >= 80) && new Set(last3.map(x => x.scenarioId)).size >= 2;
-    const lessons = LESSONS.every(l => progress.lessons[l.id]);
-    return { ok: ok && lessons, last3, lessons };
+  function masteryStatus(tk) {
+    const ls = LESSONS.filter(l => (l.track || "elicit") === tk);
+    const sess = progress.sessions.filter(x => { const sc = SCENARIOS.find(s => s.id === x.scenarioId); return sc && trackOf(sc) === tk; });
+    const last3 = sess.slice(-3);
+    const callsOk = last3.length === 3 && last3.every(x => x.score >= 80) && new Set(last3.map(x => x.scenarioId)).size >= 2;
+    const done = ls.filter(l => progress.lessons[l.id]).length;
+    return { ok: callsOk && done === ls.length, last3, done, total: ls.length, sess };
   }
   function renderProgress(main) {
-    const m = masteryStatus();
     main.append(el("h2", null, "Progress"),
-      el("div", { class: "card " + (m.ok ? "mastered" : "") },
-        el("h3", null, m.ok ? "Mastery reached" : "Mastery target"),
-        el("p", null, "All lessons complete, then three consecutive role-plays scoring 80 or more across at least two different clients."),
+      el("p", { class: "lede" }, "Mastery in a track means all its lessons complete, then three consecutive role-plays scoring 80 or more across at least two different scenarios."));
+    Object.entries(TRACKS).forEach(([k, v]) => {
+      const m = masteryStatus(k);
+      const card = el("div", { class: "card " + (m.ok ? "mastered" : "") },
+        el("h3", null, v.name + (m.ok ? ": mastery reached" : "")),
         el("ul", null,
-          el("li", null, "Lessons: " + LESSONS.filter(l => progress.lessons[l.id]).length + " / " + LESSONS.length),
-          el("li", null, "Last three scores: " + (m.last3.length ? m.last3.map(x => x.score).join(", ") : "none yet")))));
-    const recent = progress.sessions.slice(-5);
-    if (recent.length) {
-      main.append(el("h3", null, "Principles (average of last " + recent.length + " calls)"),
-        el("div", { class: "bars" }, Object.entries(PRINCIPLES).filter(([k]) => recent.some(x => x.principles[k] !== undefined)).map(([k, v]) => {
-          const a = avg(recent.filter(x => x.principles[k] !== undefined).map(x => x.principles[k]));
-          return el("div", { class: "bar" }, el("span", null, v), el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + a / 5 * 100 + "%" })), el("b", null, a.toFixed(1)));
-        })),
-        el("p", { class: "muted" }, "Focus next on your lowest bar."));
-    }
+          el("li", null, "Lessons: " + m.done + " / " + m.total),
+          el("li", null, "Last three scores: " + (m.last3.length ? m.last3.map(x => x.score).join(", ") : "none yet"))));
+      const recent = m.sess.slice(-5);
+      if (recent.length) {
+        card.append(el("p", { class: "muted" }, "Principles (average of last " + recent.length + " calls)"),
+          el("div", { class: "bars" }, v.core.concat(k === "elicit" ? ["P8"] : []).filter(p => recent.some(x => x.principles[p] !== undefined)).map(p => {
+            const a2 = avg(recent.filter(x => x.principles[p] !== undefined).map(x => x.principles[p]));
+            return el("div", { class: "bar" }, el("span", null, PRINCIPLES[p]), el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + a2 / 5 * 100 + "%" })), el("b", null, a2.toFixed(1)));
+          })));
+      }
+      main.append(card);
+    });
     main.append(el("h3", null, "Role-play history"));
     if (!progress.sessions.length) main.append(el("p", { class: "muted" }, "No calls yet."));
     else main.append(el("table", null,
-      el("thead", null, el("tr", null, ["Date", "Client", "Score", "Facts"].map(h => el("th", null, h)))),
+      el("thead", null, el("tr", null, ["Date", "Scenario", "Score", "Found"].map(h => el("th", null, h)))),
       el("tbody", null, progress.sessions.slice().reverse().slice(0, 20).map(x => {
         const sc = SCENARIOS.find(s => s.id === x.scenarioId);
         return el("tr", null, el("td", null, new Date(x.ts).toLocaleDateString("en-NZ")), el("td", null, sc ? sc.title : x.scenarioId), el("td", null, String(x.score)), el("td", null, x.found + "/" + x.total));

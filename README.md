@@ -1,6 +1,6 @@
-# Client Elicitation Trainer
+# Conversation Skills Trainer
 
-A static training site for learning client requirements elicitation, then practising it against live AI role-play clients.
+A static training site for conversation skills in four tracks (client elicitation, defusing conflict, difficult work conversations, personal conversations), each with lessons, drills and live AI role-play.
 
 - **Learn**: eight short lessons with checks
 - **Drill**: rewrite weak questions, coached by AI
@@ -13,7 +13,7 @@ Open the GitHub Pages site, go to Settings, and paste an Anthropic API key. The 
 
 ## Edit content
 
-Lessons, drills and scenarios are all in `data.js`. No build step.
+Lessons, drills and scenarios are in `data.js` (client elicitation) and `tracks.js` (the other tracks). No build step.
 
 ## Run locally
 

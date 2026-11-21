@@ -61,3 +61,6 @@ label.check{font-weight:400}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
 footer{padding-bottom:30px}
 :focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.tracks{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:6px 14px;font:inherit;cursor:pointer}
+.chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
