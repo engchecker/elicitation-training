@@ -44,16 +44,18 @@
   try { apiKey = (settings.remember ? localStorage.getItem("elicit.key") : sessionStorage.getItem("elicit.key")) || ""; } catch (e) { /* ignore */ }
 
   try { openaiKey = (settings.remember ? localStorage.getItem("elicit.okey") : sessionStorage.getItem("elicit.okey")) || ""; } catch (e) { /* ignore */ }
-  const SET_DEFAULTS = { voiceOn: false, handsFree: false, autoSend: false, sttModel: "gpt-4o-mini-transcribe", ttsModel: "gpt-4o-mini-tts" };
+  const DEFAULT_ABOUT = "I'm a 50-year-old chartered engineer who also manages people and co-directs a small firm. I'm direct, analytical and solution-focused. I find small talk, staying calm in conflict, and understanding and voicing the other person's viewpoint harder than the technical work. I'd like concrete example wording and one clear priority at a time, with plain, practical feedback rather than generic empathy language.";
+  const SET_DEFAULTS = { aboutMe: DEFAULT_ABOUT, voiceOn: false, handsFree: false, autoSend: false, sttModel: "gpt-4o-mini-transcribe", ttsModel: "gpt-4o-mini-tts" };
   settings = Object.assign({}, SET_DEFAULTS, settings);
 
   function persist() { save(LS.progress, progress); }
-  let track = (settings.track && TRACKS[settings.track]) ? settings.track : "elicit";
+  let track = (settings.track && TRACKS[settings.track]) ? settings.track : "perspective";
+  const coachCtx = () => settings.aboutMe ? "\n\nAbout the learner (tailor your feedback to this; give concrete example wording; do not mention this profile explicitly): " + settings.aboutMe : "";
   const trackOf = s => (s && s.track) || "elicit";
   const keysFor = s => (s && s.principles) || TRACKS[trackOf(s)].core;
   function trackBar(main, rerender) {
     const bar = el("div", { class: "tracks", role: "tablist", "aria-label": "Skill track" });
-    Object.entries(TRACKS).forEach(([k, v]) => {
+    TRACK_ORDER.map(k => [k, TRACKS[k]]).forEach(([k, v]) => {
       bar.append(el("button", { type: "button", role: "tab", "aria-selected": String(k === track), class: "chip" + (k === track ? " on" : ""),
         onclick: () => { track = k; settings.track = k; save(LS.settings, settings); rerender(); } }, v.name));
     });
@@ -89,7 +91,7 @@
   }
 
   /* ---------- navigation ---------- */
-  const views = { learn: renderLearn, drill: renderDrill, roleplay: renderRoleplay, progress: renderProgress, settings: renderSettings };
+  const views = { plan: renderPlan, learn: renderLearn, drill: renderDrill, roleplay: renderRoleplay, progress: renderProgress, settings: renderSettings };
   function go(name) {
     document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === name ? "page" : "false"));
     stopVoice(); if (rp) rp.active = false;
@@ -97,6 +99,63 @@
     views[name](main);
     window.scrollTo(0, 0);
     if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  }
+
+
+  /* ---------- MY PLAN ---------- */
+  const FOCUS = [
+    { name: "Small talk", keys: ["T1", "T2", "T3", "T4", "T5"], track: "smalltalk" },
+    { name: "Staying calm under pressure", keys: ["D1", "D2", "D3", "D5"], track: "defuse" },
+    { name: "Understanding the other person's view", keys: ["V1", "V3", "D4", "C3", "P3"], track: "perspective" },
+    { name: "Expressing that understanding", keys: ["V2", "V4", "V5", "P5"], track: "perspective" }
+  ];
+  function focusScore(keys) {
+    const vals = [];
+    progress.sessions.slice(-12).forEach(x => keys.forEach(k => { if (x.principles && x.principles[k] !== undefined) vals.push(x.principles[k]); }));
+    return vals.length ? avg(vals) : null;
+  }
+  function renderPlan(main) {
+    const about = el("textarea", { rows: 5, "aria-label": "About me" }); about.value = settings.aboutMe || "";
+    const saved = el("span", { class: "muted" });
+    main.append(el("h2", null, "My plan"),
+      el("p", { class: "lede" }, "A practice programme built around small talk, staying calm, and understanding and voicing other people's views."),
+      el("div", { class: "card" },
+        el("h3", null, "My profile"),
+        el("p", { class: "muted" }, "Used only to tailor the coach's feedback. Stored in this browser. Edit it freely."),
+        about,
+        el("div", { class: "row" }, el("button", { class: "btn", type: "button", onclick: () => { settings.aboutMe = about.value.trim(); save(LS.settings, settings); saved.textContent = " Saved."; } }, "Save profile"), saved)));
+    main.append(el("h3", null, "Focus areas"));
+    const bars = el("div", { class: "bars" });
+    FOCUS.forEach(f => {
+      const sc = focusScore(f.keys);
+      bars.append(el("div", { class: "bar" }, el("span", null, f.name),
+        el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + ((sc || 0) / 5 * 100) + "%" })),
+        el("b", null, sc === null ? "none yet" : sc.toFixed(1))));
+    });
+    main.append(bars, el("p", { class: "muted" }, "Averages from your last role-play sessions, out of 5."));
+    const order = [
+      ["perspective", "Start here. It underpins everything else: understand first, then express."],
+      ["defuse", "Staying calm. Start with 'Steady yourself first' and 'Know your triggers and pre-write your lines'."],
+      ["smalltalk", "Small talk. Short, low-stakes scenarios build confidence quickly."],
+      ["work", "Difficult conversations at work: feedback, saying no, disagreeing with a peer."],
+      ["elicit", "Client conversations, once the basics feel natural."],
+      ["personal", "Personal conversations, when you want to apply it closer to home."]
+    ];
+    main.append(el("h3", null, "Suggested order"));
+    const ol = el("ol", { class: "plan" });
+    order.forEach(([k, why]) => {
+      const m = masteryStatus(k);
+      ol.append(el("li", null, el("b", null, TRACKS[k].name + ": "), why, " ",
+        el("span", { class: "muted" }, "(" + m.done + "/" + m.total + " lessons" + (m.ok ? ", mastered" : "") + ") "),
+        el("button", { class: "btn ghost small", type: "button", onclick: () => { track = k; settings.track = k; save(LS.settings, settings); go("learn"); } }, "Open")));
+    });
+    main.append(ol);
+    main.append(el("h3", null, "A weekly rhythm (about 45 minutes)"),
+      el("ul", null,
+        el("li", null, "Two short sessions of about 10 minutes: one lesson plus three drill phrases."),
+        el("li", null, "Two role-plays of about 10 minutes each. Retry the same scenario once to apply the debrief."),
+        el("li", null, "Once a week, use one pre-written line in real life (a follow-up question, \"Help me understand...\", or a pause).")),
+      el("p", { class: "muted" }, "Mastery per track: all lessons complete, then three role-plays in a row at 80 or above across two different scenarios."));
   }
 
   /* ---------- LEARN ---------- */
@@ -189,7 +248,7 @@
       btn.disabled = true; clear(out); out.append(el("p", { class: "muted" }, "Coach is reviewing..."));
       try {
         const reply = await claude(
-          "You are a coach teaching " + TRACKS[track].skill + ". Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example line\"}. Judge the rewrite against these principles: " + TRACKS[track].core.map(k => PRINCIPLES[k]).join("; ") + ".",
+          "You are a coach teaching " + TRACKS[track].skill + ". Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example line\"}. Judge the rewrite against these principles: " + TRACKS[track].core.map(k => PRINCIPLES[k]).join("; ") + "." + coachCtx(),
           [{ role: "user", content: "Weak original: " + d.bad + "\nIssue: " + d.flaw + "\nLearner's rewrite: " + text }], 400);
         const r = parseJSON(reply);
         const rating = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0)));
@@ -368,7 +427,7 @@
     hintBtn.addEventListener("click", async () => {
       if (rp.busy) return; rp.hints++; status.textContent = "Coach is thinking...";
       try {
-        const t = await claude("You are a coach for " + TRACKS[trackOf(s)].skill + ". Give ONE short sentence of guidance on what type of move the learner should try next, based on the conversation. Do not reveal hidden facts. NZ English.",
+        const t = await claude("You are a coach for " + TRACKS[trackOf(s)].skill + ". Give ONE short sentence of guidance on what type of move the learner should try next, based on the conversation. Do not reveal hidden facts. NZ English." + coachCtx(),
           [{ role: "user", content: "Principles: " + keysFor(s).map(k => PRINCIPLES[k]).join("; ") + "\n\nHidden facts the learner should uncover (do not reveal): " + s.facts.map(f => f.fact).join("; ") + "\n\nConversation:\n" + transcript(rp.turns) }], 150);
         status.textContent = "Hint: " + t;
       } catch (e) { status.textContent = "Error: " + e.message; }
@@ -388,7 +447,7 @@
     if (rp.turns.filter(t => t.role === "user").length < 2) { alert("Have a slightly longer conversation first."); return; }
     clear(main); main.append(el("h2", null, "Debrief"), el("p", { class: "muted" }, "The coach is reviewing your call..."));
     try {
-      const sys = "You are a rigorous but fair coach for " + TRACKS[trackOf(s)].skill + ", assessing a learner's conversation with another person. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{" + keysFor(s).map(k => "\"" + k + "\":0-5").join(",") + "},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of the learner's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the other person actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements and up to 3 better_questions.";
+      const sys = "You are a rigorous but fair coach for " + TRACKS[trackOf(s)].skill + ", assessing a learner's conversation with another person. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{" + keysFor(s).map(k => "\"" + k + "\":0-5").join(",") + "},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of the learner's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the other person actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements (most important first, each with example wording the learner could use) and up to 3 better_questions." + coachCtx();
       const user = "Principles:\n" + keysFor(s).map(k => k + ": " + PRINCIPLES[k]).join("\n") +
         "\n\nHidden facts (id: fact):\n" + s.facts.map(f => f.id + ": " + f.fact).join("\n") +
         "\n\nTranscript:\n" + transcript(rp.turns);
@@ -440,7 +499,7 @@
   function renderProgress(main) {
     main.append(el("h2", null, "Progress"),
       el("p", { class: "lede" }, "Mastery in a track means all its lessons complete, then three consecutive role-plays scoring 80 or more across at least two different scenarios."));
-    Object.entries(TRACKS).forEach(([k, v]) => {
+    TRACK_ORDER.map(k => [k, TRACKS[k]]).forEach(([k, v]) => {
       const m = masteryStatus(k);
       const card = el("div", { class: "card " + (m.ok ? "mastered" : "") },
         el("h3", null, v.name + (m.ok ? ": mastery reached" : "")),
@@ -528,5 +587,5 @@
   document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
   window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if (views[v]) go(v); });
   const start = location.hash.slice(1);
-  go(views[start] ? start : "learn");
+  go(views[start] ? start : "plan");
 })();
