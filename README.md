@@ -2,9 +2,9 @@
 
 A static training site for learning client requirements elicitation, then practising it against live AI role-play clients.
 
-- **Learn**: seven short lessons with checks
+- **Learn**: eight short lessons with checks
 - **Drill**: rewrite weak questions, coached by AI
-- **Role-play**: four simulated clients with hidden facts; debrief scores you against seven principles
+- **Role-play**: four simulated clients with hidden facts; debrief scores you against principles
 - **Progress**: mastery = all lessons complete, then three consecutive role-plays at 80+ across at least two clients
 
 ## Use

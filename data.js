@@ -7,8 +7,10 @@ window.PRINCIPLES = {
   P4: "Coverage of the engineering checklist",
   P5: "Listening: paraphrase and summarise back",
   P6: "Assumptions and red flags surfaced",
-  P7: "Close: confirm, record, agree next steps"
+  P7: "Close: confirm, record, agree next steps",
+  P8: "Holding your frame under pressure"
 };
+window.CORE_PRINCIPLES = ["P1","P2","P3","P4","P5","P6","P7"];
 
 window.LESSONS = [
   {
@@ -216,6 +218,58 @@ window.LESSONS = [
         why: "A written record fixes shared understanding and protects both parties."
       }
     ]
+  },
+  {
+    id: "L8",
+    title: "Frame attacks: holding your ground",
+    principle: "P8",
+    summary: "Some questions are not requests for information. They put you on trial. Recognise them and decline the role, calmly, without leaving the conversation.",
+    points: [
+      "**Never explain yourself under pressure.** Explaining under pressure means you have accepted the frame that you must justify yourself. A calm reply: \"I don't think you meant to, but that question puts me in the role of justifying myself, and that's not a role I'm taking on right now.\"",
+      "**Never argue about your motive.** Once you are defending your intent, the other person has redefined who you are. Do not step into the box of defending what kind of person you are.",
+      "**Do not debate character questions.** \"Are you just covering yourself?\" and \"Why are you being difficult?\" are character claims, not technical questions. The same rule applies.",
+      "**Then redirect** to the purpose and the facts: \"What I can do is tell you what I need to see and what I can offer.\"",
+      "**Keep the distinction.** A legitimate challenge (\"What is the basis for that assessment?\") deserves a clear technical answer. Professional accountability is not a frame attack. The attack is aimed at your motives or character, not your reasoning.",
+      "Stay calm, slow and brief. Silence after your reply is fine."
+    ],
+    good: "Client: \"Are you just covering your backside?\" You: \"I don't think you meant it that way, but that puts me in the position of defending myself, and I won't do that. What I can do is explain what I'd need to see before signing anything.\"",
+    bad: "\"No, honestly, I'm not covering myself, I've been doing this for 20 years and I only want to help...\"",
+    source: { label: "Frame attacks (Instagram reel)", url: "https://www.instagram.com/reel/Df6te4dHK1a/?cnvx=ZG0wZ3E0OGQyb3B5" },
+    checks: [
+      {
+        q: "A client snaps, \"Why are you making this so difficult? Other engineers just sign.\" Which response holds the frame best?",
+        options: [
+          "\"I'm not being difficult, I'm just being careful because of liability...\"",
+          "\"That question puts me in the position of justifying myself, which I won't take on. Here's what I can offer: an inspection and report.\"",
+          "\"Fine, I'll sign it this once.\"",
+          "\"If you don't like it, find another engineer.\""
+        ],
+        answer: 1,
+        why: "It names the dynamic calmly, declines the role, and redirects to what you can do. Options A to C either defend, give in, or escalate."
+      },
+      {
+        q: "Which question is a legitimate challenge you should answer, rather than a frame attack?",
+        options: [
+          "\"Are you just protecting yourself?\"",
+          "\"What is your basis for saying the slab needs testing?\"",
+          "\"What kind of engineer refuses a simple job?\"",
+          "\"Why do you always make things hard?\""
+        ],
+        answer: 1,
+        why: "It asks for your technical reasoning. Frame attacks target your motive or character."
+      },
+      {
+        q: "Why is arguing about your motive a mistake?",
+        options: [
+          "Motives never matter",
+          "It lets the other person redefine who you are, and you end up defending your character instead of the facts",
+          "It takes too long",
+          "Clients prefer silence"
+        ],
+        answer: 1,
+        why: "Defending your intent accepts their framing of you as the topic of the conversation."
+      }
+    ]
   }
 ];
 
@@ -309,6 +363,26 @@ window.SCENARIOS = [
       { id: "f4", fact: "The client has asked for a decision on the scheme in two weeks, and design is only half done", reveal: "when asked about programme or decision dates" },
       { id: "f5", fact: "A previous engineer was dropped after disagreeing about retaining the chimney", reveal: "when asked about previous engineering input or who else has been involved" },
       { id: "f6", fact: "She expects the engineer to attend three site meetings and produce markups within the fee", reveal: "when asked what she expects the engineer to deliver or attend" }
+    ]
+  },
+  {
+    id: "S5",
+    level: "Hard",
+    title: "Under fire",
+    blurb: "An angry owner questions your motives. Practise holding your frame while still eliciting.",
+    principles: ["P1","P2","P3","P4","P5","P6","P7","P8"],
+    persona: "Gary, 56, owner of a half-finished extension, angry and exhausted, feels let down by everyone in the process.",
+    context: "You take a call from a stressed owner whose extension has stalled.",
+    opening: "Right. Are you another one who's going to string me along and charge me for the privilege?",
+    style: "Combative. Uses frame attacks when pressed or when asked a question he dislikes: questions your motive (\"are you just covering yourself?\"), your character (\"why are you being difficult?\") and demands justification (\"explain why you need all that\"). If the engineer defends, explains at length or argues about intent, he escalates. If the engineer calmly declines the role, names what they can do and asks a purpose-led question, he settles and gradually opens up.",
+    facts: [
+      { id: "f1", fact: "He fired his builder three weeks ago after a dispute over variations and unpaid invoices", reveal: "when asked what has happened on site or who is involved, once he has settled" },
+      { id: "f2", fact: "Council issued a notice to fix after a framing inspection found missing bracing", reveal: "when asked about council or inspections" },
+      { id: "f3", fact: "A previous engineer withdrew from the project and he does not know why", reveal: "when asked about earlier engineering input" },
+      { id: "f4", fact: "His real worry is that he cannot get final insurance or sell if the work is not signed off", reveal: "when asked what outcome he needs or why it matters" },
+      { id: "f5", fact: "He wants an engineer to say the builder's work is bad so he can use it in a dispute", reveal: "when asked what he wants to do with the engineer's report, with rapport" },
+      { id: "f6", fact: "His budget is nearly exhausted, about $2,500 remaining for professional help", reveal: "when asked about budget calmly" },
+      { id: "f7", fact: "Cladding is on three of four walls, so framing is hidden", reveal: "when asked about the current state of the work or access" }
     ]
   }
 ];

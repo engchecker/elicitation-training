@@ -86,7 +86,7 @@
     const done = LESSONS.filter(l => progress.lessons[l.id]).length;
     main.append(
       el("h2", null, "Learn the principles"),
-      el("p", { class: "lede" }, "Seven short lessons. Each ends with two checks. Complete them all, then move on to the drill and the role-play."),
+      el("p", { class: "lede" }, LESSONS.length + " short lessons. Each ends with checks. Complete them all, then move on to the drill and the role-play."),
       el("div", { class: "meter", role: "progressbar", "aria-valuenow": done, "aria-valuemin": 0, "aria-valuemax": LESSONS.length },
         el("div", { class: "meter-fill", style: "width:" + (done / LESSONS.length * 100) + "%" })),
       el("p", { class: "muted" }, done + " of " + LESSONS.length + " lessons complete")
@@ -104,6 +104,7 @@
         el("div", { class: "pair" },
           el("div", { class: "good" }, el("b", null, "Try: "), l.good),
           el("div", { class: "bad" }, el("b", null, "Avoid: "), l.bad)),
+        l.source ? el("p", { class: "muted" }, "Source: ", el("a", { href: l.source.url, target: "_blank", rel: "noopener noreferrer" }, l.source.label)) : null,
         el("h4", null, "Check yourself"),
         renderChecks(l, card)
       );
@@ -181,11 +182,13 @@
     area.append(el("p", { class: "prompt" }, d.bad), el("p", { class: "muted" }, "Hint: " + d.flaw), ta, el("div", { class: "row" }, btn), out);
   }
 
+  const keysFor = s => (s && s.principles) || CORE_PRINCIPLES;
+
   /* ---------- ROLE-PLAY ---------- */
   let rp = null;
   function renderRoleplay(main) {
     main.append(el("h2", null, "Role-play"),
-      el("p", { class: "lede" }, "Choose a client. You are the engineer. The client has hidden facts that only surface if you ask well. When you finish, the coach debriefs you against the seven principles."));
+      el("p", { class: "lede" }, "Choose a client. You are the engineer. The client has hidden facts that only surface if you ask well. When you finish, the coach debriefs you against the principles."));
     if (!apiKey) main.append(el("div", { class: "notice" }, "Add your Anthropic API key in ", el("a", { href: "#settings", onclick: e => { e.preventDefault(); go("settings"); } }, "Settings"), " to start."));
     const grid = el("div", { class: "grid" });
     SCENARIOS.forEach(s => {
@@ -248,7 +251,7 @@
       if (rp.busy) return; rp.hints++; status.textContent = "Coach is thinking...";
       try {
         const t = await claude("You are an elicitation coach. Give ONE short sentence of guidance on what type of question or move the engineer should try next, based on the conversation. Do not reveal hidden facts. NZ English.",
-          [{ role: "user", content: "Principles: " + Object.values(PRINCIPLES).join("; ") + "\n\nHidden facts the engineer should uncover (do not reveal): " + s.facts.map(f => f.fact).join("; ") + "\n\nConversation:\n" + transcript(rp.turns) }], 150);
+          [{ role: "user", content: "Principles: " + keysFor(s).map(k => PRINCIPLES[k]).join("; ") + "\n\nHidden facts the engineer should uncover (do not reveal): " + s.facts.map(f => f.fact).join("; ") + "\n\nConversation:\n" + transcript(rp.turns) }], 150);
         status.textContent = "Hint: " + t;
       } catch (e) { status.textContent = "Error: " + e.message; }
     });
@@ -266,13 +269,13 @@
     if (rp.turns.filter(t => t.role === "user").length < 2) { alert("Have a slightly longer conversation first."); return; }
     clear(main); main.append(el("h2", null, "Debrief"), el("p", { class: "muted" }, "The coach is reviewing your call..."));
     try {
-      const sys = "You are a rigorous but fair elicitation coach assessing an engineer's discovery call with a client. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{\"P1\":0-5,\"P2\":0-5,\"P3\":0-5,\"P4\":0-5,\"P5\":0-5,\"P6\":0-5,\"P7\":0-5},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of engineer's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the client actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements and up to 3 better_questions.";
-      const user = "Principles:\n" + Object.entries(PRINCIPLES).map(([k, v]) => k + ": " + v).join("\n") +
+      const sys = "You are a rigorous but fair elicitation coach assessing an engineer's discovery call with a client. Use NZ English. Respond with JSON only, no other text, in exactly this shape: {\"principles\":{" + keysFor(s).map(k => "\"" + k + "\":0-5").join(",") + "},\"facts_uncovered\":[\"f1\"],\"strengths\":[\"...\"],\"improvements\":[\"...\"],\"better_questions\":[{\"you\":\"quote of engineer's weak line\",\"better\":\"stronger alternative\"}],\"summary\":\"2 sentences\"}. Score each principle 0 (absent) to 5 (excellent) from the transcript only. A fact counts as uncovered only if the client actually revealed it in the transcript. Give 2-3 strengths, 2-3 improvements and up to 3 better_questions.";
+      const user = "Principles:\n" + keysFor(s).map(k => k + ": " + PRINCIPLES[k]).join("\n") +
         "\n\nHidden facts (id: fact):\n" + s.facts.map(f => f.id + ": " + f.fact).join("\n") +
         "\n\nTranscript:\n" + transcript(rp.turns);
       const r = parseJSON(await claude(sys, [{ role: "user", content: user }], 1500));
       const pr = {};
-      Object.keys(PRINCIPLES).forEach(k => { pr[k] = Math.max(0, Math.min(5, Math.round(Number((r.principles || {})[k]) || 0))); });
+      keysFor(s).forEach(k => { pr[k] = Math.max(0, Math.min(5, Math.round(Number((r.principles || {})[k]) || 0))); });
       const validIds = new Set(s.facts.map(f => f.id));
       const found = [...new Set((r.facts_uncovered || []).filter(id => validIds.has(id)))];
       const score = Math.round(avg(Object.values(pr)) / 5 * 60 + found.length / s.facts.length * 40);
@@ -291,7 +294,7 @@
         el("p", { class: "muted" }, "60% from principles, 40% from hidden facts uncovered")),
       el("p", null, r.summary || ""),
       el("h3", null, "Principles"),
-      el("div", { class: "bars" }, Object.entries(PRINCIPLES).map(([k, v]) =>
+      el("div", { class: "bars" }, keysFor(s).map(k => [k, PRINCIPLES[k]]).map(([k, v]) =>
         el("div", { class: "bar" }, el("span", null, v), el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + pr[k] / 5 * 100 + "%" })), el("b", null, pr[k] + "/5")))),
       el("h3", null, "Hidden facts (" + found.length + " of " + s.facts.length + " uncovered)"),
       el("ul", { class: "facts" }, s.facts.map(f => el("li", { class: found.includes(f.id) ? "found" : "missed" },
@@ -318,15 +321,15 @@
     main.append(el("h2", null, "Progress"),
       el("div", { class: "card " + (m.ok ? "mastered" : "") },
         el("h3", null, m.ok ? "Mastery reached" : "Mastery target"),
-        el("p", null, "All seven lessons complete, then three consecutive role-plays scoring 80 or more across at least two different clients."),
+        el("p", null, "All lessons complete, then three consecutive role-plays scoring 80 or more across at least two different clients."),
         el("ul", null,
           el("li", null, "Lessons: " + LESSONS.filter(l => progress.lessons[l.id]).length + " / " + LESSONS.length),
           el("li", null, "Last three scores: " + (m.last3.length ? m.last3.map(x => x.score).join(", ") : "none yet")))));
     const recent = progress.sessions.slice(-5);
     if (recent.length) {
       main.append(el("h3", null, "Principles (average of last " + recent.length + " calls)"),
-        el("div", { class: "bars" }, Object.entries(PRINCIPLES).map(([k, v]) => {
-          const a = avg(recent.map(x => x.principles[k] || 0));
+        el("div", { class: "bars" }, Object.entries(PRINCIPLES).filter(([k]) => recent.some(x => x.principles[k] !== undefined)).map(([k, v]) => {
+          const a = avg(recent.filter(x => x.principles[k] !== undefined).map(x => x.principles[k]));
           return el("div", { class: "bar" }, el("span", null, v), el("div", { class: "meter" }, el("div", { class: "meter-fill", style: "width:" + a / 5 * 100 + "%" })), el("b", null, a.toFixed(1)));
         })),
         el("p", { class: "muted" }, "Focus next on your lowest bar."));
