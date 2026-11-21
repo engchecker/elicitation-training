@@ -84,7 +84,7 @@ window.LESSONS.push(
       "**Avoid dead-end openers** like \"Good weekend?\", which gets a yes or no.",
       "**Use their name** if you know it, and say yours clearly."
     ],
-    good: "\"Hi, I'm Martin. What brought you along today?\"",
+    good: "\"Hi, I'm Sam. What brought you along today?\"",
     bad: "\"Did you have a good weekend?\" (yes/no)",
     checks: [
       { q: "Which opener invites more than a one-word answer?", options: ["\"Good weekend?\"", "\"What did you get up to at the weekend?\"", "\"Busy?\"", "\"Cold today, isn't it?\" then silence"], answer: 1, why: "An open question gives them something to talk about." },
