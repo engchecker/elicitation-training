@@ -256,7 +256,7 @@
       try {
         const reply = await claude(
           "You are a coach teaching " + TRACKS[track].skill + ". Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example line\"}. Judge the rewrite against these principles: " + TRACKS[track].core.map(k => PRINCIPLES[k]).join("; ") + "." + coachCtx(),
-          [{ role: "user", content: "Weak original: " + d.bad + "\nIssue: " + d.flaw + "\nLearner's rewrite: " + text }], 400);
+          [{ role: "user", content: (ctx ? "Situation: " + ctx + "\n" : "") + "Weak original: " + d.bad + "\nIssue: " + d.flaw + "\nLearner's rewrite: " + text }], 400);
         let r;
         try { r = parseJSON(reply); }
         catch (pe) {
@@ -271,7 +271,8 @@
           el("button", { class: "btn", type: "button", onclick: () => nextDrill(area) }, "Next prompt"));
       } catch (e) { clear(out); out.append(el("p", { class: "err" }, e.message)); btn.disabled = false; }
     });
-    area.append(el("p", { class: "prompt" }, d.bad), el("p", { class: "muted" }, "Hint: " + d.flaw), ta, el("div", { class: "row" }, btn), out);
+    const ctx = (window.DRILL_CONTEXT || {})[(d.track || "elicit") + "|" + d.bad];
+    area.append(ctx ? el("p", { class: "ctx" }, el("b", null, "Situation: "), ctx) : null, el("p", { class: "prompt" }, d.bad), el("p", { class: "muted" }, "Hint: " + d.flaw), ta, el("div", { class: "row" }, btn), out);
   }
 
 

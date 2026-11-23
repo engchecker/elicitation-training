@@ -65,3 +65,4 @@ footer{padding-bottom:30px}
 .chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:6px 14px;font:inherit;cursor:pointer}
 .chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .btn.small{padding:3px 10px;font-size:.85rem}ol.plan li{margin:8px 0}
+.ctx{background:color-mix(in srgb,var(--brand) 10%,transparent);border-left:4px solid var(--brand);padding:8px 12px;border-radius:8px;margin:0 0 10px}
