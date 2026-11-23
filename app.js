@@ -187,6 +187,7 @@
           progress.lessons[l.id] ? el("span", { class: "badge ok" }, "Complete") : null),
         el("p", { class: "lede" }, l.summary),
         el("ul", null, l.points.map(p => el("li", null, rich(p)))),
+        l.scene ? el("div", { class: "ctx" }, el("b", null, "Scene: "), l.scene) : null,
         el("div", { class: "pair" },
           el("div", { class: "good" }, el("b", null, "Try: "), l.good),
           el("div", { class: "bad" }, el("b", null, "Avoid: "), l.bad)),
@@ -354,6 +355,8 @@
       grid.append(el("div", { class: "card scen" },
         el("span", { class: "badge lvl-" + s.level.toLowerCase() }, s.level),
         el("h3", null, s.title), el("p", null, s.blurb),
+        s.brief ? el("div", { class: "ctx" }, el("b", null, "Your situation: "), s.brief) : null,
+        s.goal ? el("p", { class: "muted" }, el("b", null, "Your goal: "), s.goal) : null,
         best ? el("p", { class: "muted" }, "Best score: " + best) : null,
         el("button", { class: "btn", type: "button", disabled: !apiKey, onclick: () => startRoleplay(main, s) }, "Start call")));
     });
@@ -449,7 +452,7 @@
     });
     endBtn.addEventListener("click", () => { rp.active = false; stopVoice(); debrief(main); });
 
-    main.append(el("h2", null, s.title), el("p", { class: "muted" }, s.level + " | " + s.context),
+    main.append(el("h2", null, s.title), s.brief ? el("div", { class: "ctx" }, el("b", null, "Your situation: "), s.brief, s.goal ? el("br") : null, s.goal ? el("b", null, "Your goal: ") : null, s.goal || null) : el("p", { class: "muted" }, s.level + " | " + s.context),
       log, input, el("div", { class: "row" }, mic, send, hintBtn, endBtn), status);
     paint();
     if (voiceReady) (async () => { const ok = await say(s.opening); if (ok && settings.handsFree && rp.active) listen(); })();
