@@ -74,7 +74,7 @@
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
-      body: JSON.stringify({ model: settings.model || DEFAULT_MODEL, max_tokens: maxTokens || 700, system, messages })
+      body: JSON.stringify({ model: settings.model || DEFAULT_MODEL, max_tokens: Math.max(maxTokens || 0, 2000), system, messages })
     });
     if (!res.ok) {
       let msg = res.status + " " + res.statusText;
@@ -82,11 +82,13 @@
       throw new Error(msg);
     }
     const data = await res.json();
-    return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+    if (!text) throw new Error("The model returned no text (stop reason: " + (data.stop_reason || "unknown") + "). Try again.");
+    return text;
   }
   function parseJSON(text) {
     const s = text.indexOf("{"), e = text.lastIndexOf("}");
-    if (s < 0 || e < 0) throw new Error("Coach did not return structured feedback. Try again.");
+    if (s < 0 || e < 0) { const err = new Error("Coach did not return structured feedback. Try again."); err.raw = text; throw err; }
     return JSON.parse(text.slice(s, e + 1));
   }
 
@@ -255,7 +257,13 @@
         const reply = await claude(
           "You are a coach teaching " + TRACKS[track].skill + ". Use NZ English and be concise. Respond with JSON only: {\"rating\": 0-5 integer, \"feedback\": \"2-3 sentences\", \"model\": \"one strong example line\"}. Judge the rewrite against these principles: " + TRACKS[track].core.map(k => PRINCIPLES[k]).join("; ") + "." + coachCtx(),
           [{ role: "user", content: "Weak original: " + d.bad + "\nIssue: " + d.flaw + "\nLearner's rewrite: " + text }], 400);
-        const r = parseJSON(reply);
+        let r;
+        try { r = parseJSON(reply); }
+        catch (pe) {
+          clear(out);
+          out.append(el("p", null, reply), el("button", { class: "btn", type: "button", onclick: () => nextDrill(area) }, "Next prompt"));
+          return;
+        }
         const rating = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0)));
         progress.drills.push({ ts: Date.now(), rating }); persist();
         clear(out);
@@ -415,14 +423,15 @@
       const text = input.value.trim(); if (!text || rp.busy) return;
       rp.busy = true; send.disabled = true; input.value = ""; status.textContent = "";
       rp.turns.push({ role: "user", content: text }); paint();
+      let replied = false;
       try {
         const msgs = [{ role: "user", content: "(The call connects. Say your opening line.)" }, ...rp.turns];
         const reply = await claude(clientSystem(s), msgs, 400);
-        rp.turns.push({ role: "assistant", content: reply });
+        rp.turns.push({ role: "assistant", content: reply }); replied = true;
       } catch (e) { status.textContent = "Error: " + e.message; rp.turns.pop(); input.value = text; }
       rp.busy = false; send.disabled = false; paint(); input.focus();
       const last = rp.turns[rp.turns.length - 1];
-      if (last.role === "assistant" && rp.active) {
+      if (replied && last.role === "assistant" && rp.active) {
         const ok = await say(last.content);
         if (ok && settings.handsFree && rp.active) listen();
       }
@@ -456,7 +465,7 @@
       const user = "Principles:\n" + keysFor(s).map(k => k + ": " + PRINCIPLES[k]).join("\n") +
         "\n\nHidden facts (id: fact):\n" + s.facts.map(f => f.id + ": " + f.fact).join("\n") +
         "\n\nTranscript:\n" + transcript(rp.turns);
-      const r = parseJSON(await claude(sys, [{ role: "user", content: user }], 1500));
+      const r = parseJSON(await claude(sys, [{ role: "user", content: user }], 4000));
       const pr = {};
       keysFor(s).forEach(k => { pr[k] = Math.max(0, Math.min(5, Math.round(Number((r.principles || {})[k]) || 0))); });
       const validIds = new Set(s.facts.map(f => f.id));
