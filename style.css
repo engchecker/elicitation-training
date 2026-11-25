@@ -66,3 +66,14 @@ footer{padding-bottom:30px}
 .chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .btn.small{padding:3px 10px;font-size:.85rem}ol.plan li{margin:8px 0}
 .ctx{background:color-mix(in srgb,var(--brand) 10%,transparent);border-left:4px solid var(--brand);padding:8px 12px;border-radius:8px;margin:0 0 10px}
+.scen.locked{opacity:.6}
+.badge.due{color:var(--brand);border-color:var(--brand);margin-left:6px}
+.clock{font-weight:600;margin:6px 0;min-height:1.4em}
+.clock.hot{color:var(--bad)}
+.agit{font-size:.9rem;color:var(--muted)}
+.meter-fill.hot{background:var(--bad)}
+.notice.end-blowup{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.notice.end-calm{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.trace{display:flex;align-items:flex-end;gap:3px;height:70px;border-bottom:1px solid var(--line);margin:10px 0 4px}
+.trace div{flex:1;max-width:28px;background:var(--brand);border-radius:3px 3px 0 0}
+.trace div.hot{background:var(--bad)}

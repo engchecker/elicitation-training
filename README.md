@@ -1,11 +1,15 @@
 # Conversation Skills Trainer
 
-A static training site for conversation skills in eight tracks (seeing their side, defusing conflict, small talk, parents and children, partners and friends, work conversations, client elicitation, personal basics), each with lessons, drills and live AI role-play.
+A static training site for conversation skills in nine tracks (seeing their side, defusing conflict, potential violence, small talk, parents and children, partners and friends, work conversations, client elicitation, personal basics), each with lessons, drills and live AI role-play.
 
 - **Learn**: eight short lessons with checks
 - **Drill**: rewrite weak questions, coached by AI
 - **Role-play**: four simulated clients with hidden facts; debrief scores you against principles
 - **Progress**: mastery = all lessons complete, then three consecutive role-plays at 80+ across at least two clients
+
+## Pressure mode (Potential violence track)
+
+Scenarios in this track unlock in five levels (two scores of 80+ at one level open the next) and run under pressure: the other person has a hidden agitation level (0-10) that rises when you argue, defend or crowd them and falls when you keep distance, label, deflect and offer choices. A response clock (default 8 s) sends a "silence" if you freeze. A call can end in a blow-up (score capped at 50), a calm settle, or you walking away. The debrief shows the agitation trace, turning points, response time, speaking pace and whether you should have left. Describe actions in brackets, e.g. (step back, hands open). Clock, meter visibility, warm-up and level locks are in Settings.
 
 ## Use
 
@@ -13,7 +17,7 @@ Open the GitHub Pages site, go to Settings, and paste an Anthropic API key. The 
 
 ## Edit content
 
-Lessons, drills and scenarios are in `data.js` (client elicitation) and `tracks.js` (the other tracks). No build step.
+Lessons, drills and scenarios are in `data.js` (client elicitation) and `tracks.js` to `tracks4.js` (the other tracks; `tracks4.js` is Potential violence). No build step.
 
 ## Run locally
 

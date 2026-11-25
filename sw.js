@@ -1,7 +1,7 @@
 /* Network-first service worker so the app opens offline and always updates when online.
    Only same-origin GET requests are cached. API calls are never intercepted. */
-const CACHE = "cst-v4";
-const FILES = ["./", "index.html", "style.css", "data.js", "drillcontext.js", "tracks.js", "tracks2.js", "tracks3.js", "scenes.js", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "cst-v5";
+const FILES = ["./", "index.html", "style.css", "data.js", "drillcontext.js", "tracks.js", "tracks2.js", "tracks3.js", "tracks4.js", "scenes.js", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
